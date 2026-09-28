@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#245f46"><title>Chelsea & Justin's Ridebook</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f4f7f2;--card:#fff;--ink:#17231d;--muted:#607066;--accent:#246b4a;--line:#dbe4dd;--warm:#f0e7d6;--blue:#e9f2fb}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink);font-size:17px}
+button,input,select,textarea{font:inherit}button,a.btn{min-height:48px;border:0;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.primary{background:var(--accent);color:#fff}.secondary{background:#e6eee9;color:var(--ink)}.danger{background:#f7e6e4;color:#7d241c}.blue{background:var(--blue);color:#183b59}
+header{padding:26px 18px 20px;background:linear-gradient(135deg,#173d2c,#2f7554);color:#fff}header h1{margin:0 0 6px;font-size:clamp(27px,7vw,44px)}header p{margin:0;opacity:.92}.wrap{max-width:1100px;margin:auto;padding:18px}.hidden{display:none!important}
+.auth{max-width:480px;margin:30px auto;background:var(--card);padding:22px;border-radius:18px;box-shadow:0 5px 20px #0001}.auth input{width:100%;margin:6px 0 12px;padding:14px;border:1px solid var(--line);border-radius:10px}.auth button{width:100%}
+nav{display:flex;gap:8px;overflow:auto;margin:18px 0;padding-bottom:3px}nav button{white-space:nowrap}.active{background:var(--accent);color:#fff}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}.stat{background:var(--card);padding:16px;border-radius:14px;border:1px solid var(--line)}.stat b{font-size:26px;display:block}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.searchbox{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:10px 0 16px}.filters{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:8px}.filters input,.filters select{width:100%;padding:12px;border:1px solid #bfcac2;border-radius:10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}.card h3{margin:0 0 5px}.meta{color:var(--muted);font-size:15px}.notes{white-space:pre-wrap;margin:10px 0}.stars{font-size:20px}.pill{display:inline-block;background:var(--warm);border-radius:99px;padding:5px 9px;margin:5px 3px 0 0;font-size:14px}.scenery{margin:10px 0}.card button{flex:1}
+dialog{border:0;border-radius:18px;padding:0;max-width:720px;width:calc(100% - 20px);max-height:92vh}.form,.detail{padding:20px;overflow:auto;max-height:92vh}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{margin-bottom:10px}.field label{display:block;font-weight:700;margin-bottom:5px}.field input,.field select,.field textarea{width:100%;padding:12px;border:1px solid #bfcac2;border-radius:10px}.field textarea{min-height:95px}.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.topline{display:flex;justify-content:space-between;align-items:center;gap:10px}.empty{padding:30px;text-align:center;color:var(--muted);background:#fff;border-radius:14px}
+.detail h2{margin-top:0}.detailgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.detailbox{background:#f7f9f7;border:1px solid var(--line);border-radius:12px;padding:12px}.detailbox b{display:block;margin-bottom:3px}.mapframe{width:100%;height:300px;border:0;border-radius:14px;background:#e7ece8;margin:12px 0}.interest{display:grid;grid-template-columns:1fr 1fr;gap:10px}.interest button{width:100%;margin-top:5px}.small{font-size:14px;color:var(--muted)}
+@media(max-width:680px){.grid,.detailgrid,.interest,.filters{grid-template-columns:1fr}.wrap{padding:12px}.stats{grid-template-columns:1fr 1fr}}
+</style></head>
+<body><header><h1>🚲 Chelsea & Justin's Ridebook</h1><p>Discover it. Save it. Ride it. Remember it.</p></header>
+<main class="wrap">
+<section id="auth" class="auth"><h2>Sign in</h2><p>Use your Ridebook account.</p><label>Email</label><input id="email" type="email"><label>Password</label><input id="password" type="password"><button class="primary" onclick="signIn()">Sign in</button><p id="authMsg"></p></section>
+<section id="app" class="hidden"><div class="topline"><div id="who" class="meta"></div><button class="secondary" onclick="signOut()">Sign out</button></div>
+<nav>
+<button id="tabDiscover" class="active" onclick="showTab('discover')">🔎 Discover</button>
+<button id="tabSaved" class="secondary" onclick="showTab('saved')">❤️ Want to Ride</button>
+<button id="tabRides" class="secondary" onclick="showTab('rides')">✅ Completed</button>
+</nav>
+<div id="stats" class="stats"></div>
+<div id="searchbox" class="searchbox"><div class="filters">
+<input id="search" placeholder="Search trail, town, scenery…" oninput="render()">
+<select id="surfaceFilter" onchange="render()"><option value="">All surfaces</option><option>Paved</option><option>Gravel</option><option>Mixed</option><option>Singletrack</option></select>
+<select id="routeFilter" onchange="render()"><option value="">Any route type</option><option>Loop</option><option>Out & Back</option><option>Point-to-Point</option></select>
+<select id="distanceFilter" onchange="render()"><option value="">Any distance</option><option value="15">15+ miles</option><option value="20">20+ miles</option><option value="30">30+ miles</option></select>
+</div></div>
+<div class="toolbar"><button class="primary" id="addBtn" onclick="openForm()">＋ Add ride to database</button><button class="secondary" onclick="loadData()">↻ Refresh</button></div>
+<div id="cards" class="cards"></div></section></main>
+
+<dialog id="detailDialog"><div class="detail"><div class="topline"><h2 id="detailTitle"></h2><button class="secondary" onclick="detailDialog.close()">✕</button></div><div id="detailBody"></div></div></dialog>
+
+<dialog id="editor"><form class="form" onsubmit="saveItem(event)"><h2 id="formTitle"></h2><input type="hidden" id="itemId"><div class="grid">
+<div class="field"><label>Ride name *</label><input id="rideName" required></div><div class="field"><label>Town / area</label><input id="location"></div>
+<div class="field rideOnly hidden"><label>Date ridden</label><input id="rideDate" type="date"></div>
+<div class="field"><label id="milesLabel">Distance (miles)</label><input id="miles" type="number" step=".1" min="0"></div>
+<div class="field"><label>Elevation gain (ft)</label><input id="elevation" type="number" min="0"></div>
+<div class="field"><label>Surface</label><select id="surface"><option></option><option>Paved</option><option>Gravel</option><option>Mixed</option><option>Singletrack</option></select></div>
+<div class="field"><label>Difficulty</label><select id="difficulty"><option></option><option>Easy</option><option>Moderate</option><option>Hard</option></select></div>
+<div class="field ideaOnly"><label>Route type</label><select id="routeType"><option></option><option>Loop</option><option>Out & Back</option><option>Point-to-Point</option></select></div>
+<div class="field ideaOnly"><label>Start point / address</label><input id="startLocation"></div>
+<div class="field ideaOnly"><label>End / turnaround point</label><input id="endLocation"></div>
+<div class="field ideaOnly"><label>Drive from Commerce City (miles)</label><input id="driveMiles" type="number" step=".1" min="0"></div>
+<div class="field ideaOnly"><label>Drive time (minutes)</label><input id="driveMinutes" type="number" min="0"></div>
+<div class="field ideaOnly"><label>Class 1 e-bike</label><select id="ebikeStatus"><option></option><option>Allowed</option><option>Needs Verification</option><option>Not Allowed</option></select></div>
+<div class="field"><label>Best season</label><input id="season"></div>
+<div class="field ideaOnly"><label>Chelsea interest (1–5)</label><select id="chelseaInterest"><option></option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="field ideaOnly"><label>Justin interest (1–5)</label><select id="justinInterest"><option></option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="field rideOnly hidden"><label>Chelsea rating</label><select id="chelseaRating"><option></option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="field rideOnly hidden"><label>Justin rating</label><select id="justinRating"><option></option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="field ideaOnly"><label>Trail / route source link</label><input id="sourceUrl" type="url"></div>
+<div class="field"><label>Map / route link</label><input id="mapUrl" type="url"></div>
+</div>
+<div class="field ideaOnly"><label>Probable scenery</label><textarea id="scenery" placeholder="Lake, mountains, forest, creek, fall colors…"></textarea></div>
+<div class="field"><label>Notes / planning notes</label><textarea id="notes"></textarea></div>
+<div class="actions"><button type="button" class="secondary" onclick="editor.close()">Cancel</button><button class="primary" type="submit">Save</button></div></form></dialog>
+
+<script>
+const sb=supabase.createClient('https://ebkmgxawxmhqucbycpxm.supabase.co','sb_publishable_uUs4oAfgwlnXEjV38RCfTw_E6YAkm6j');
+let currentTab='discover',rides=[],ideas=[];const $=id=>document.getElementById(id),val=id=>$(id).value.trim(),num=v=>v===''?null:Number(v);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stars=v=>v?'★'.repeat(Math.round(v))+'☆'.repeat(5-Math.round(v)):'';
+const gmaps=a=>a?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(a):'';
+const embedMap=(a,b)=>a?'https://www.google.com/maps?q='+encodeURIComponent(b?(a+' to '+b):a)+'&output=embed':'';
+async function signIn(){let {error}=await sb.auth.signInWithPassword({email:val('email'),password:$('password').value});$('authMsg').textContent=error?error.message:'';if(!error)init()}
+async function signOut(){await sb.auth.signOut();location.reload()}
+async function init(){let {data:{session}}=await sb.auth.getSession();if(!session)return;$('auth').classList.add('hidden');$('app').classList.remove('hidden');$('who').textContent='Signed in as '+session.user.email;loadData()}
+async function loadData(){let [r,i]=await Promise.all([sb.from('rides').select('*'),sb.from('ride_ideas').select('*')]);if(r.error||i.error){$('cards').innerHTML='<div class="empty">'+esc((r.error||i.error).message)+'</div>';return}rides=r.data||[];ideas=i.data||[];render()}
+function showTab(t){currentTab=t;['Discover','Saved','Rides'].forEach(n=>$('tab'+n).className=((t==='discover'&&n==='Discover')||(t==='saved'&&n==='Saved')||(t==='rides'&&n==='Rides'))?'active':'secondary');$('searchbox').classList.toggle('hidden',t==='rides');$('addBtn').textContent=t==='rides'?'＋ Add completed ride':'＋ Add ride to database';render()}
+function filteredIdeas(){
+ let q=val('search').toLowerCase(),sf=val('surfaceFilter'),rf=val('routeFilter'),min=Number(val('distanceFilter')||0);
+ return ideas.filter(x=>{
+   let saved=(x.collection||'Discover')==='Saved';
+   if(currentTab==='saved'&&!saved)return false;if(currentTab==='discover'&&saved)return false;
+   let hay=[x.ride_name,x.location,x.scenery,x.surface,x.notes,x.best_season].join(' ').toLowerCase();
+   return (!q||hay.includes(q))&&(!sf||x.surface===sf)&&(!rf||x.route_type===rf)&&(!min||(+x.estimated_miles||0)>=min);
+ });
+}
+function render(){let miles=rides.reduce((a,r)=>a+(+r.miles||0),0),saved=ideas.filter(x=>(x.collection||'Discover')==='Saved').length;
+ $('stats').innerHTML=`<div class="stat"><b>${ideas.length}</b>rides in library</div><div class="stat"><b>${saved}</b>want to ride</div><div class="stat"><b>${rides.length}</b>completed</div><div class="stat"><b>${miles.toFixed(1)}</b>miles logged</div>`;
+ let d=currentTab==='rides'?rides:filteredIdeas();$('cards').innerHTML=d.length?d.map(card).join(''):'<div class="empty">No rides match this view yet.</div>';
+}
+function card(x){let idea=currentTab!=='rides',mi=idea?x.estimated_miles:x.miles,el=idea?x.estimated_elevation:x.elevation_gain;
+ if(!idea)return `<article class="card"><h3>${esc(x.ride_name)}</h3><div class="meta">${[x.location,mi!=null?mi+' mi':null,el!=null?el+' ft':null,x.surface].filter(Boolean).map(esc).join(' • ')}</div>${x.chelsea_rating?'<div>Chelsea '+stars(x.chelsea_rating)+'</div>':''}${x.justin_rating?'<div>Justin '+stars(x.justin_rating)+'</div>':''}${x.notes?'<div class="notes">'+esc(x.notes)+'</div>':''}<div class="toolbar"><button class="secondary" onclick="editItem('${x.id}')">Edit</button><button class="danger" onclick="removeItem('${x.id}')">Delete</button></div></article>`;
+ let saved=(x.collection||'Discover')==='Saved';
+ return `<article class="card"><h3>${esc(x.ride_name)}</h3><div class="meta">${[x.location,mi!=null?mi+' mi':null,x.surface,x.route_type].filter(Boolean).map(esc).join(' • ')}</div>${x.scenery?'<div class="scenery">🏔️ '+esc(x.scenery)+'</div>':''}${x.drive_time_minutes?'<span class="pill">🚗 '+esc(x.drive_time_minutes)+' min drive</span>':''}${x.ebike_status?'<span class="pill">⚡ '+esc(x.ebike_status)+'</span>':''}<div class="toolbar"><button class="blue" onclick="viewIdea('${x.id}')">View ride</button>${saved?`<button class="primary" onclick="rodeIt('${x.id}')">We rode it!</button>`:`<button class="primary" onclick="saveToWant('${x.id}')">❤️ Want to Ride</button>`}</div></article>`;
+}
+function viewIdea(id){let x=ideas.find(i=>i.id===id);if(!x)return;$('detailTitle').textContent=x.ride_name;
+ let start=x.start_location,end=x.end_location,map=embedMap(start,end),saved=(x.collection||'Discover')==='Saved';
+ $('detailBody').innerHTML=`${map?`<iframe class="mapframe" loading="lazy" src="${esc(map)}" title="Map of ${esc(x.ride_name)}"></iframe>`:''}
+ <div class="detailgrid">
+ <div class="detailbox"><b>🏔️ Probable scenery</b>${esc(x.scenery||'Not researched yet')}</div>
+ <div class="detailbox"><b>🛣️ Surface</b>${esc(x.surface||'Unknown')}</div>
+ <div class="detailbox"><b>📏 Distance</b>${x.estimated_miles!=null?esc(x.estimated_miles)+' miles':'Unknown'}</div>
+ <div class="detailbox"><b>↔️ Route</b>${esc(x.route_type||'Unknown')}</div>
+ <div class="detailbox"><b>⛰️ Elevation gain</b>${x.estimated_elevation!=null?Number(x.estimated_elevation).toLocaleString()+' ft':'Unknown'}</div>
+ <div class="detailbox"><b>🚗 From Commerce City</b>${x.drive_distance_miles!=null?esc(x.drive_distance_miles)+' mi • ':''}${x.drive_time_minutes!=null?esc(x.drive_time_minutes)+' min':'Not researched yet'}</div>
+ <div class="detailbox"><b>⚡ Class 1 e-bike</b>${esc(x.ebike_status||'Needs Verification')}</div>
+ <div class="detailbox"><b>🍂 Best season</b>${esc(x.best_season||'Not listed')}</div></div>
+ ${start?`<div class="detailbox" style="margin-top:10px"><b>📍 Start</b>${esc(start)}<div class="toolbar"><a class="btn primary" target="_blank" rel="noopener" href="${esc(gmaps(start))}">Open start in Google Maps</a></div></div>`:''}
+ ${end?`<div class="detailbox" style="margin-top:10px"><b>🏁 End / turnaround</b>${esc(end)}<div class="toolbar"><a class="btn primary" target="_blank" rel="noopener" href="${esc(gmaps(end))}">Open end in Google Maps</a></div></div>`:''}
+ <div class="interest"><div class="detailbox"><b>Chelsea interest</b><div class="stars">${stars(x.chelsea_interest)}</div><button class="secondary" onclick="setInterest('${x.id}','chelsea_interest')">Set my rating</button></div><div class="detailbox"><b>Justin interest</b><div class="stars">${stars(x.justin_interest)}</div><button class="secondary" onclick="setInterest('${x.id}','justin_interest')">Set rating</button></div></div>
+ ${x.notes?`<div class="detailbox" style="margin-top:10px"><b>💬 Planning notes</b>${esc(x.notes)}</div>`:''}
+ <div class="toolbar">${x.map_url?`<a class="btn blue" target="_blank" rel="noopener" href="${esc(x.map_url)}">🗺️ Route map</a>`:''}${x.source_url?`<a class="btn blue" target="_blank" rel="noopener" href="${esc(x.source_url)}">🔗 Trail info</a>`:''}${!saved?`<button class="primary" onclick="saveToWant('${x.id}')">❤️ Save to Want to Ride</button>`:''}<button class="secondary" onclick="editIdeaFromDetail('${x.id}')">Edit details</button></div>`;
+ $('detailDialog').showModal();
+}
+async function setInterest(id,field){let r=prompt('Rate this ride from 1 to 5');if(!r)return;r=Number(r);if(r<1||r>5)return alert('Please enter 1–5.');let {error}=await sb.from('ride_ideas').update({[field]:r}).eq('id',id);if(error)return alert(error.message);await loadData();viewIdea(id)}
+async function saveToWant(id){let {error}=await sb.from('ride_ideas').update({collection:'Saved',status:'Want to Ride'}).eq('id',id);if(error)return alert(error.message);$('detailDialog').open&&$('detailDialog').close();await loadData()}
+function editIdeaFromDetail(id){$('detailDialog').close();currentTab='saved';openForm(ideas.find(x=>x.id===id))}
+function openForm(x=null){let isRide=currentTab==='rides';$('itemId').value=x?.id||'';$('rideName').value=x?.ride_name||'';$('location').value=x?.location||'';$('rideDate').value=x?.ride_date||'';$('miles').value=(isRide?x?.miles:x?.estimated_miles)??'';$('elevation').value=(isRide?x?.elevation_gain:x?.estimated_elevation)??'';$('surface').value=x?.surface||'';$('difficulty').value=x?.difficulty||'';$('routeType').value=x?.route_type||'';$('startLocation').value=x?.start_location||'';$('endLocation').value=x?.end_location||'';$('driveMiles').value=x?.drive_distance_miles??'';$('driveMinutes').value=x?.drive_time_minutes??'';$('ebikeStatus').value=x?.ebike_status||'';$('season').value=x?.best_season||'';$('chelseaInterest').value=x?.chelsea_interest||'';$('justinInterest').value=x?.justin_interest||'';$('chelseaRating').value=x?.chelsea_rating||'';$('justinRating').value=x?.justin_rating||'';$('sourceUrl').value=x?.source_url||'';$('mapUrl').value=x?.map_url||'';$('scenery').value=x?.scenery||'';$('notes').value=x?.notes||'';document.querySelectorAll('.rideOnly').forEach(e=>e.classList.toggle('hidden',!isRide));document.querySelectorAll('.ideaOnly').forEach(e=>e.classList.toggle('hidden',isRide));$('formTitle').textContent=(x?'Edit ':'Add ')+(isRide?'completed ride':'ride to database');$('editor').showModal()}
+function editItem(id){openForm(rides.find(x=>x.id===id))}
+async function saveItem(e){e.preventDefault();let isRide=currentTab==='rides',{data:{user}}=await sb.auth.getUser(),id=val('itemId');
+ let p=isRide?{ride_name:val('rideName'),location:val('location')||null,ride_date:val('rideDate')||null,miles:num(val('miles')),elevation_gain:num(val('elevation')),surface:val('surface')||null,difficulty:val('difficulty')||null,chelsea_rating:num(val('chelseaRating')),justin_rating:num(val('justinRating')),best_season:val('season')||null,map_url:val('mapUrl')||null,notes:val('notes')||null}:{ride_name:val('rideName'),location:val('location')||null,estimated_miles:num(val('miles')),estimated_elevation:num(val('elevation')),surface:val('surface')||null,difficulty:val('difficulty')||null,route_type:val('routeType')||null,start_location:val('startLocation')||null,end_location:val('endLocation')||null,drive_distance_miles:num(val('driveMiles')),drive_time_minutes:num(val('driveMinutes')),ebike_status:val('ebikeStatus')||null,best_season:val('season')||null,chelsea_interest:num(val('chelseaInterest')),justin_interest:num(val('justinInterest')),source_url:val('sourceUrl')||null,map_url:val('mapUrl')||null,scenery:val('scenery')||null,notes:val('notes')||null,collection:xCollection(id)};
+ if(!id)p.created_by=user.id;let table=isRide?'rides':'ride_ideas',q=id?sb.from(table).update(p).eq('id',id):sb.from(table).insert(p),{error}=await q;if(error)return alert(error.message);$('editor').close();loadData()}
+function xCollection(id){if(id){let x=ideas.find(i=>i.id===id);return x?.collection||'Discover'}return currentTab==='saved'?'Saved':'Discover'}
+async function removeItem(id){if(!confirm('Delete this completed ride?'))return;let {error}=await sb.from('rides').delete().eq('id',id);if(error)alert(error.message);else loadData()}
+async function rodeIt(id){let x=ideas.find(i=>i.id===id),{data:{user}}=await sb.auth.getUser();let {error}=await sb.from('rides').insert({ride_name:x.ride_name,location:x.location,miles:x.estimated_miles,elevation_gain:x.estimated_elevation,surface:x.surface,difficulty:x.difficulty,notes:x.notes,best_season:x.best_season,start_location:x.start_location,map_url:x.map_url,created_by:user.id});if(error)return alert(error.message);await sb.from('ride_ideas').delete().eq('id',id);$('detailDialog').open&&$('detailDialog').close();currentTab='rides';showTab('rides');loadData()}
+init();
+</script></body></html>
